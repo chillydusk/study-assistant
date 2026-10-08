@@ -74,7 +74,8 @@ def main() -> None:
             {"role": "user", "content": "用一句话介绍你自己，15字以内"},
         ],
         stream=True,
-        # ← 要了这行，DeepSeek 才会在最后一块把 usage 发过来；不加就永远拿不到用量
+        # 兼容真正的 OpenAI 用（不加这行，OpenAI 不返回 usage）。
+        # 实测 DeepSeek 默认就带 usage，加不加都能拿到 —— 留着是为了换厂商时不会静默丢用量。
         stream_options={"include_usage": True},
     )
 
@@ -85,7 +86,9 @@ def main() -> None:
     usage = None  # 用量，最后一块才来
 
     for chunk in stream:
-        if chunk.usage is not None:  # 末块：usage 有值、choices 是空的
+        if chunk.usage is not None:
+            # ⚠️ 实测：usage 和 finish_reason 挤在**同一块**上，且这一块 choices 不为空。
+            # 所以不能在这里 continue —— 写 Agent 循环时，finish_reason 正要靠这一块取。
             usage = chunk.usage
             continue
         if not chunk.choices:  # 防御性写法：万一有的块没 choices
